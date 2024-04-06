@@ -1,5 +1,5 @@
 #ifndef ZF_LOG_LEVEL
-    #define ZF_LOG_LEVEL ZF_LOG_VERBOSE
+    #define ZF_LOG_LEVEL ZF_LOG_INFO
 #endif
 
 #define ZF_LOG_DEF_SRCLOC ZF_LOG_SRCLOC_LONG
@@ -31,6 +31,7 @@ typedef struct
 {
     // Arguments
     char *filename;
+    int filename_enabled;
     int rx_channel;
     double frequency;
     float rate;
@@ -39,6 +40,7 @@ typedef struct
     size_t samples_to_read;
     int force_fpga_prog;
     int write_metadata;
+    int cw;
     
     // State
     int sample_infinite;
@@ -98,6 +100,8 @@ static void init_program_state(void)
     state.force_fpga_prog = 0;
     state.write_metadata = 0;
     state.rate = 4000000;
+    state.cw = 0;
+    state.filename_enabled = 0;
     
     // state
     state.sample_infinite = 1;
@@ -119,12 +123,14 @@ static void usage(void)
         "\t-f frequency [Hz]\n"
 		"\t[-g gain (default: -1 for agc)]\n"
 		"\t[-p ppm_error (default: 0)]\n"
+        "\t[-w enable cw (default: 0)]\n"
 		"\t[-n number of samples to read (default: 0, infinite)]\n"
         "\t[-r sample Rate (default: 4000000)]\n"
 		"\t[-S force sync output (default: async)]\n"
         "\t[-F force fpga reprogramming (default: '0')]\n"
         "\t[-M write metadata (default: '0')]\n"
-		"\tfilename ('-' dumps samples to stdout)\n\n"
+        "\t[-e enable reading from file (default: '0')]\n"
+		"\tfilename ('-' samples from stdin)\n\n"
         "Example:\n"
         "\t1. Sample S1G channel at 905MHz into filename capture.bin\n"
         "\t\tcariboulite_util -c 0 -f 905000000 capture.bin\n"
@@ -183,11 +189,17 @@ static int check_inputs(void)
 int analyze_arguments(int argc, char *argv[])
 {
     int opt;
-    while ((opt = getopt(argc, argv, "c:f:g:n:r:S:F")) != -1) {
+    while ((opt = getopt(argc, argv, "c:f:w:e:p:g:n:r:S:F")) != -1) {
 		switch (opt) {
+		case 'e':
+			state.filename_enabled = 1;
+			break;
 		case 'c':
 			state.rx_channel = (int)atoi(optarg);
             printf("DBG: RX Channel = %d\n", state.rx_channel);
+			break;
+        case 'w':
+			state.cw = (int)atoi(optarg);
 			break;
 		case 'f':
 			state.frequency = atof(optarg);
@@ -271,7 +283,7 @@ int main(int argc, char *argv[])
 
     // Init the program
     //-------------------------------------
-    if (cariboulite_init(state.force_fpga_prog, cariboulite_log_level_none) != 0)
+    if (cariboulite_init(state.force_fpga_prog, cariboulite_log_level_verbose) != 0)
     {
         ZF_LOGE("driver init failed, terminating...");
         return -1;
@@ -299,7 +311,9 @@ int main(int argc, char *argv[])
         release_system();
         return -1;
     }
-
+    
+    
+    
     state.metadata = malloc(sizeof(cariboulite_sample_meta)*state.native_read_len);
     if (state.metadata == NULL)
     {
@@ -319,56 +333,92 @@ int main(int argc, char *argv[])
     // Init the radio
     //-------------------------------------    
     // Set radio parameters
+    cariboulite_radio_activate_channel(state.radio, cariboulite_channel_dir_tx, false);
+    ZF_LOGE("############################   Ora la configurazione mia\n");
     cariboulite_radio_set_frequency(state.radio, true, &state.frequency);
-
-    cariboulite_radio_set_rx_gain_control(state.radio, state.gain == -1.0, state.gain);
+    if(state.cw)
+        cariboulite_radio_set_cw_outputs(state.radio, false, true);
+    cariboulite_radio_set_tx_power(state.radio, 0);
     cariboulite_radio_sync_information(state.radio);
-	if(state.rate < 3900000)
+    //cariboulite_radio_set_tx_bandwidth(state.radio,cariboulite_radio_tx_cut_off_500khz);
+    if(state.rate < 3900000)
     {
-        cariboulite_radio_set_rx_sample_rate_flt(state.radio, state.rate/1000);
-		//cariboulite_radio_set_rx_bandwidth(state.radio, state.rate/2);
+        cariboulite_radio_set_tx_samp_cutoff_flt(state.radio,state.rate/1000);
+        // cariboulite_radio_set_tx_samp_cutoff(state.radio,cariboulite_radio_rx_sample_rate_2000khz,cariboulite_radio_rx_f_cut_0_75_half_fs);
     }
-    cariboulite_radio_activate_channel(state.radio, cariboulite_channel_dir_rx, true);
+    else
+    {
+        cariboulite_radio_set_tx_samp_cutoff(state.radio,cariboulite_radio_rx_sample_rate_4000khz,cariboulite_radio_rx_f_cut_0_75_half_fs);
+    }
+    cariboulite_radio_activate_channel(state.radio, cariboulite_channel_dir_tx, true);
+    //cariboulite_radio_set_frequency(state.radio, true, &state.frequency);
     
     // Open the file for writing
     if(strcmp(state.filename, "-") == 0) 
     {
-		state.file = stdout;
-	}
+		state.file = stdin;
+    }
     else
     {
-		state.file = fopen(state.filename, "wb");
+		state.file = fopen(state.filename, "rb");
 		if (!state.file) 
         {
             ZF_LOGE("Failed to open %s", state.filename);
             release_system();
             return -1;
         }
-	}
-    
+    }
+
     usleep(100000);
+    unsigned int it = 0;
+    unsigned int sample_val = 0;
 	while (state.program_running)
 	{
-		int ret = cariboulite_radio_read_samples(state.radio, state.buffer, state.metadata, state.native_read_len);
+        int ret = 0;
+        if(!state.filename_enabled)
+        {
+            unsigned int len = sizeof(cariboulite_sample_complex_int16)*state.native_read_len;
+            uint8_t* buffer = (uint8_t*) state.buffer;
+            for(int i = 0; i < len; i+=4)
+            {
+                buffer[i] =   (sample_val>>9) & 0xff;
+                buffer[i+1] = (sample_val>>17) & 0xff;
+                buffer[i+2] = (sample_val>>9) & 0xff;
+                buffer[i+3] = (sample_val>>17) & 0xff;
+                sample_val =  (sample_val + 1) % 4000001;
+            }
+            sample_val ++;
+            ret = cariboulite_radio_write_samples(state.radio, state.buffer,  state.native_read_len);
+        }
+        else
+        {
+            unsigned int len = sizeof(cariboulite_sample_complex_int16)*state.native_read_len;
+            int wret = fread(state.buffer, 1, len, state.file);
+            if(wret > 0)
+            {
+                ret = cariboulite_radio_write_samples(state.radio, state.buffer,  wret / sizeof(cariboulite_sample_complex_int16));
+            }
+        }
+        
+		 
         if (ret < 0)
         {
             ZF_LOGE("Samples read operation failed. Quiting...");
             continue;
         }
         
-        // TODO: how should the metadata be expressed in the file?
-        int wret = fwrite(state.buffer, 1, ret*4, state.file);
-        if (wret != (ret*4))
-        {
-            ZF_LOGE("Writing into file failed, exiting!\n");
-            break;
-        }
+        if(!(it%67))
+        cariboulite_radio_debug(state.radio);
         
         if (!state.sample_infinite) 
         {
             state.samples_to_read -= ret;
             if (state.samples_to_read <= 0)
                 break;
+        }
+        if(ret > 0)
+        {
+        it++;
         }
     }
 
