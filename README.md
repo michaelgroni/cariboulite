@@ -33,7 +33,7 @@ Use the following steps to install the CaribouLite on your choice of RPI board
 ```
 mkdir ~/projects
 cd ~/projects
-git clone https://github.com/cariboulabs/cariboulite
+git clone https://github.com/michaelgroni/cariboulite
 cd cariboulite
 ```
 4. Use the following setup command (**note: don't `sudo` it**):
