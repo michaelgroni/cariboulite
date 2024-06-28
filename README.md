@@ -1,4 +1,8 @@
-https://github.com/cariboulabs/cariboulite/discussions/202
+# Changes in this fork
+
+* Old path to config.txt removed.
+* A few minor changes to the code to make it compile.
+* Get Soapy via apt instead from source.
 
 # CaribouLite
 CaribouLite is an affordable, educational, open-source SDR evaluation platform and a HAT for the Raspberry-Pi family of boards (40-pin versions only). It is built for makers, hackers, and researchers and was designed to complement the current SDR (Software Defined Radio) eco-systems offering with a scalable, standalone dual-channel software-defined radio.
