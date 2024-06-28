@@ -1,14 +1,11 @@
-https://github.com/cariboulabs/cariboulite/discussions/202
+# Changes in this fork
+
+* Old path to config.txt removed.
+* A few minor changes to the code to make it compile.
+* Get Soapy via apt instead from source.
 
 # CaribouLite
 CaribouLite is an affordable, educational, open-source SDR evaluation platform and a HAT for the Raspberry-Pi family of boards (40-pin versions only). It is built for makers, hackers, and researchers and was designed to complement the current SDR (Software Defined Radio) eco-systems offering with a scalable, standalone dual-channel software-defined radio.
-
-<table>
-  <tr>
-    <td><img src="https://github.com/cariboulabs/cariboulite_hw/blob/main/hardware/rev2/pictures/oshwa.png" alt="Open source hardware association certificate"></td>
-    <td>This project has been certified by OSHWA</td>
-  </tr>
-</table>
 
 <table>
   <tr>
@@ -23,8 +20,6 @@ CaribouLite is an affordable, educational, open-source SDR evaluation platform a
 Due to the architectural changes in RPI5 - the new I/O controller called "RP1" chip, CaribouLite is not supported on RPI5. We assume that the reason is the removal of the SMI interface altogether from the external interfaces by Broadcomm's team.
 So, if you intend to use CaribouLite on RPI5 please don't - it won't work. Why was the SMI interface deprecated by Broadcomm (either from its hardware or kernel SW support)? Most probably due to the same reason this interface was not documented in the first place - no interest in supporting a high-speed external interface within the 40-pin connector.
 
-Edit: The workaround we are working to support RPI5 anyway - trying to utilize the Display and Camera I/O pins from the 40-pin connector to stream information - FPGA + Kernel module adaptation.
-
 # Getting Started & Installation
 Use the following steps to install the CaribouLite on your choice of RPI board
 1. Mount the CaribouLite on a **un-powered** RPI device using the 40-pin header.
@@ -33,7 +28,7 @@ Use the following steps to install the CaribouLite on your choice of RPI board
 ```
 mkdir ~/projects
 cd ~/projects
-git clone https://github.com/cariboulabs/cariboulite
+git clone https://github.com/michaelgroni/cariboulite
 cd cariboulite
 ```
 4. Use the following setup command (**note: don't `sudo` it**):
