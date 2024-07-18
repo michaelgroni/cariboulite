@@ -44,9 +44,9 @@ The setup script **requires internet connection** and it follows the following a
    2. IIR DSP library
    3. SMI stream device module (kernel object) blob generation
 4. **Main software** and SoapyAPI compilation and installation
-5. **Raspberry PI configuration** verification. Note - the installer doesn't not actively change the RPI's configuration to fit to CaribouLite. It just checks the `/boot/config.txt` configuration file and raises warning when problem is detected. Then the user shall need to adjust the parameters accordingly.
+5. **Raspberry PI configuration** verification. Note - the installer doesn't not actively change the RPI's configuration to fit to CaribouLite. It just checks the `/boot/firmware/config.txt` configuration file and raises warning when problem is detected. Then the user shall need to adjust the parameters accordingly.
 
-Note: the user will be requested to enter their password during the installation process.
+Note: the user might be requested to enter their password during the installation process.
 
 ## Installation Troubleshooting
 1. **Modules**: Both the `spi` and `arm-i2c` dtoverlays should be disabled to run CaribouLite properly. The `libcariboulite` doen't use them. It uses direct access to `/dev/mem` to expose these peripherals (through the `pigpio` library).
